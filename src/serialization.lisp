@@ -48,7 +48,6 @@ Recursive in many cases, since composite values like lists, structs, can only be
 
 Can't serialize everything, given that some data types (e.g. anonymous functions) lack any introspectability."))
 
-
 (defmethod serialize-object ((number number))
   number)
 

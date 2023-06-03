@@ -1,6 +1,10 @@
 (in-package :autoCLaracterization)
 
 (defun generate-generate-invocation-form (name required-params optional-params rest-param keyword-params)
+  (assert (fleshed-out-optional-params-p optional-params))
+  (assert (fleshed-out-keyword-params-p keyword-params))
+  ;; Given the above two asserts, we now know all optionals/keywords
+  ;; e.g. have supplied-p bindings.
   `(generate-invocation-form
     ',name
     ,@(when required-params
@@ -8,9 +12,6 @@
           (list ,@required-params)))
     ,@(when optional-params
         `(:optional-params
-          ;; Bug: suppliedp might not exist!
-          ;; Actually, can't we just normalize the lambda-list
-          ;; so it's guaranteed to exist?
           `(,@,@(loop for (name _ suppliedp)
                         in optional-params
                       collect `(when ,suppliedp `(,,name))))))
@@ -18,13 +19,58 @@
         `(:rest-param ,rest-param))
     ,@(when keyword-params
         `(:keyword-params
-          ;; Bug: suppliedp might not exist!
-          ;; Actually, can't we just normalize the lambda-list
-          ;; so it's guaranteed to exist?
           `(,@,@(loop for ((keyword-name name) init suppliedp)
                         in keyword-params
                       collect `(when ,suppliedp `(,,keyword-name
                                                   ,,name))))))))
+
+(defun fleshed-out-optional-params-p (params)
+  (every (lambda (param)
+           (destructuring-bind (name init suppliedp) param
+             (declare (ignore name init))
+             suppliedp))
+         params))
+
+(defun fleshed-out-keyword-params-p (params)
+  (every (lambda (param)
+           (destructuring-bind ((keyword-name name) init suppliedp) param
+             (declare (ignore keyword-name name init))
+             suppliedp))
+         params))
+
+(defun flesh-out-normalized-optional-params (params)
+  (mapcar (lambda (param)
+            (destructuring-bind (name init suppliedp) param
+              `(,name ,init ,(if suppliedp
+                                 suppliedp
+                                 (gensym (symbol-name name))))))
+          params))
+
+(defun flesh-out-normalized-keyword-params (params)
+  (mapcar (lambda (param)
+            (destructuring-bind ((keyword-name name) init suppliedp) param
+              `((,keyword-name ,name) ,init ,(if suppliedp
+                                                 suppliedp
+                                                 (gensym (symbol-name name))))))
+          params))
+
+(defun make-ordinary-lambda-list (required-params
+                                  optional-params
+                                  rest-param
+                                  keyword-params
+                                  allow-other-keys-p
+                                  aux-params
+                                  keys-p)
+  `(,@required-params
+    ,@(when optional-params
+        `(&optional ,@optional-params))
+    ,@(when rest-param
+        `(&rest ,rest-param))
+    ,@(when keys-p
+        `(&key ,@keyword-params ,@(when allow-other-keys-p
+                                    `(&allow-other-keys))))
+    ,@(when aux-params
+        `(&aux ,@aux-params))))
 
 (defmacro defrecfun (name-and-options lambda-list &body body)
   "Macro to set up automatic capture of characterization tests for arbitrary functions with minimal setup/hassle.
@@ -40,14 +86,22 @@ LAMBDA-LIST and BODY are unsurprising - DEFRECFUN is meant to be 'dropped in' in
                         aux-params
                         keys-p)
       (alexandria:parse-ordinary-lambda-list lambda-list)
-    (declare (ignore allow-other-keys-p aux-params keys-p))
     (destructuring-bind (name &key
                                 (output-path '*characterization-test-output-path*)
                                 (test '#'eql)
                                 (custom-test nil custom-test-supplied-p))
         (listify name-and-options)
       (with-gensyms (invocation-form return-values result-form inner-fn)
-        (let ((new-body (subst inner-fn name body)))
+        (let* ((new-body (subst inner-fn name body))
+               (optional-params (flesh-out-normalized-optional-params optional-params))
+               (keyword-params (flesh-out-normalized-keyword-params keyword-params))
+               (lambda-list (make-ordinary-lambda-list required-params
+                                                       optional-params
+                                                       rest-param
+                                                       keyword-params
+                                                       allow-other-keys-p
+                                                       aux-params
+                                                       keys-p)))
           `(defun ,name ,lambda-list
              (let* ((,invocation-form
                       ,(generate-generate-invocation-form name
