@@ -1,0 +1,2 @@
+(defpackage :autoCLaracterization
+  (:use :cl))
