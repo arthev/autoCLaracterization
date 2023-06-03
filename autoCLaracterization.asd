@@ -7,6 +7,7 @@
   :depends-on (:fiveam     ;; ye olde test library
                :alexandria ;; contains lambda list parsers
                :closer-mop
+               :bordeaux-threads
 	       )
   :serial t
   :pathname "src"
@@ -16,4 +17,5 @@
                (:file "serialization")
                (:file "test-generation")
                (:file "recorder-macros")
+               (:file "interface")
 	       ))

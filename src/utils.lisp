@@ -46,3 +46,9 @@
                               `(slot-value ,instance ,name)
                               nil)))
              ,@body))))))
+
+(defun keywordify (arg)
+  (intern (ctypecase arg
+            (string arg)
+            (symbol (symbol-name arg)))
+          :keyword))
