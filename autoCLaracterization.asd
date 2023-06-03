@@ -12,5 +12,7 @@
   :components ((:file "packages")
                (:file "utils")
                (:file "config")
+               (:file "serialization")
+               (:file "test-generation")
                (:file "recorder-macros")
 	       ))
