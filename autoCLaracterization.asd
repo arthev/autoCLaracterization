@@ -6,6 +6,7 @@
   :author "arthev"
   :depends-on (:fiveam     ;; ye olde test library
                :alexandria ;; contains lambda list parsers
+               :closer-mop
 	       )
   :serial t
   :pathname "src"
