@@ -1,5 +1,31 @@
 (in-package :autoCLaracterization)
 
+(defun generate-generate-invocation-form (name required-params optional-params rest-param keyword-params)
+  `(generate-invocation-form
+    ',name
+    ,@(when required-params
+        `(:required-params
+          (list ,@required-params)))
+    ,@(when optional-params
+        `(:optional-params
+          ;; Bug: suppliedp might not exist!
+          ;; Actually, can't we just normalize the lambda-list
+          ;; so it's guaranteed to exist?
+          `(,@,@(loop for (name _ suppliedp)
+                        in optional-params
+                      collect `(when ,suppliedp `(,,name))))))
+    ,@(when rest-param
+        `(:rest-param ,rest-param))
+    ,@(when keyword-params
+        `(:keyword-params
+          ;; Bug: suppliedp might not exist!
+          ;; Actually, can't we just normalize the lambda-list
+          ;; so it's guaranteed to exist?
+          `(,@,@(loop for ((keyword-name name) init suppliedp)
+                        in keyword-params
+                      collect `(when ,suppliedp `(,,keyword-name
+                                                  ,,name))))))))
+
 (defmacro defrecfun (name-and-options lambda-list &body body)
   "Macro to set up automatic capture of characterization tests for arbitrary functions with minimal setup/hassle.
 
@@ -20,47 +46,26 @@ LAMBDA-LIST and BODY are unsurprising - DEFRECFUN is meant to be 'dropped in' in
                                 (test '#'eql)
                                 (custom-test nil custom-test-supplied-p))
         (listify name-and-options)
-      (let ((invocation-form-var (gensym "invocation-form"))
-            (return-values-var (gensym "return-values"))
-            (result-form-var (gensym "result-form")))
+      (with-gensyms (invocation-form return-values result-form)
         `(defun ,name ,lambda-list
-           (let* ((,invocation-form-var
-                    (generate-invocation-form
-                     ',name
-                     ,@(when required-params
-                         `(:required-params
-                           (list ,@required-params)))
-                     ,@(when optional-params
-                         `(:optional-params
-                           ;; Bug: suppliedp might not exist!
-                           ;; Actually, can't we just normalize the lambda-list
-                           ;; so it's guaranteed to exist?
-                           `(,@,@(loop for (name _ suppliedp)
-                                         in optional-params
-                                       collect `(when ,suppliedp `(,,name))))))
-                     ,@(when rest-param
-                         `(:rest-param ,rest-param))
-                     ,@(when keyword-params
-                         `(:keyword-params
-                           ;; Bug: suppliedp might not exist!
-                           ;; Actually, can't we just normalize the lambda-list
-                           ;; so it's guaranteed to exist?
-                           `(,@,@(loop for ((keyword-name name) init suppliedp)
-                                         in keyword-params
-                                       collect `(when ,suppliedp `(,,keyword-name
-                                                                   ,,name))))))))
-                  (,return-values-var
+           (let* ((,invocation-form
+                    ,(generate-generate-invocation-form name
+                                                        required-params
+                                                        optional-params
+                                                        rest-param
+                                                        keyword-params))
+                  (,return-values
                     (multiple-value-list
                      (progn ,@body)))
-                  (,result-form-var
-                    (generate-result-form ,return-values-var)))
+                  (,result-form
+                    (generate-result-form ,return-values)))
              (record-characterization-test
-              ,invocation-form-var
-              ,result-form-var
+              ,invocation-form
+              ,result-form
               ,output-path
               ,(if custom-test-supplied-p
                    custom-test
                    test))
-             (values-list ,return-values-var)))))))
+             (values-list ,return-values)))))))
 
 ;; DEFRECMETHOD ends up more complex because even if we setup a method as recordable, things might not match in the test if the method isn't the most specific one for the given input. Maybe there's a way to shortcut so as to call the relevant method more directly? If not, maybe there's some way to instrument the whole generic function to make things work out?
