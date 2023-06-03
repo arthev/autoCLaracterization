@@ -46,26 +46,29 @@ LAMBDA-LIST and BODY are unsurprising - DEFRECFUN is meant to be 'dropped in' in
                                 (test '#'eql)
                                 (custom-test nil custom-test-supplied-p))
         (listify name-and-options)
-      (with-gensyms (invocation-form return-values result-form)
-        `(defun ,name ,lambda-list
-           (let* ((,invocation-form
-                    ,(generate-generate-invocation-form name
-                                                        required-params
-                                                        optional-params
-                                                        rest-param
-                                                        keyword-params))
-                  (,return-values
-                    (multiple-value-list
-                     (progn ,@body)))
-                  (,result-form
-                    (generate-result-form ,return-values)))
-             (record-characterization-test
-              ,invocation-form
-              ,result-form
-              ,output-path
-              ,(if custom-test-supplied-p
-                   custom-test
-                   test))
-             (values-list ,return-values)))))))
+      (with-gensyms (invocation-form return-values result-form inner-fn)
+        (let ((new-body (subst inner-fn name body)))
+          `(defun ,name ,lambda-list
+             (let* ((,invocation-form
+                      ,(generate-generate-invocation-form name
+                                                          required-params
+                                                          optional-params
+                                                          rest-param
+                                                          keyword-params))
+                    (,return-values
+                      (multiple-value-list
+                       (labels ((,inner-fn ,lambda-list
+                                  ,@new-body))
+                         ,@new-body)))
+                    (,result-form
+                      (generate-result-form ,return-values)))
+               (record-characterization-test
+                ,invocation-form
+                ,result-form
+                ,output-path
+                ,(if custom-test-supplied-p
+                     custom-test
+                     test))
+               (values-list ,return-values))))))))
 
 ;; DEFRECMETHOD ends up more complex because even if we setup a method as recordable, things might not match in the test if the method isn't the most specific one for the given input. Maybe there's a way to shortcut so as to call the relevant method more directly? If not, maybe there's some way to instrument the whole generic function to make things work out?
