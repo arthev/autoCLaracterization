@@ -1,5 +1,7 @@
 (in-package :autoCLaracterization)
 
+;;;; DEFRECFUN section
+
 (defun generate-generate-invocation-form (name required-params optional-params rest-param keyword-params)
   (assert (fleshed-out-optional-params-p optional-params))
   (assert (fleshed-out-keyword-params-p keyword-params))
@@ -125,4 +127,58 @@ DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. S
                       `(:test ',test)))
                (values-list ,return-values))))))))
 
-;; DEFRECMETHOD ends up more complex because even if we setup a method as recordable, things might not match in the test if the method isn't the most specific one for the given input. Maybe there's a way to shortcut so as to call the relevant method more directly? If not, maybe there's some way to instrument the whole generic function to make things work out?
+;;;; DEFRECGENERIC section
+
+;; Observations:
+;; We can't easily test the functional interface of a single method, since there's
+;; not really any clean way to call it. The various :arounds, :befores, :afters
+;; might be very relevant to what the output of the generic call looks like (e.g.
+;; by setting up context appropriately). Hence, we can't do DEFRECMETHOD, but I
+;; think we _can_ do DEFRECGENERIC!
+
+;; Ideas:
+;; 1) In case of &key &allow-other-keys without a &rest, we'll need to insert
+;; an automatic &rest I think. Verified quickly in the REPL that this doesn't
+;; lead to trouble, though, so's all good :)
+;; 2) Supply a weirdo method combination to ensure we can wrap stuff around
+;; the whole gamut. Obviously, if method combination stuff gets supplied by
+;; the user (in the DEFRECGENERIC!!) form, then we error and warn that it's
+;; not supported. Supplying an alternate method combination is obviously a
+;; little messy, but while not perfect it at least meets the goal of easily
+;; slotting into the common cases. (Surely 95%+, at least, of generics use
+;; the standard method combination?)
+
+;; Attack:
+;; CLHS (http://www.lispworks.com/documentation/HyperSpec/Body/m_defi_4.htm)
+;; contains, as an example, the following:
+
+;; ;The default method-combination technique
+;;  (define-method-combination standard ()
+;;          ((around (:around))
+;;           (before (:before))
+;;           (primary () :required t)
+;;           (after (:after)))
+;;    (flet ((call-methods (methods)
+;;             (mapcar #'(lambda (method)
+;;                         `(call-method ,method))
+;;                     methods)))
+;;      (let ((form (if (or before after (rest primary))
+;;                      `(multiple-value-prog1
+;;                         (progn ,@(call-methods before)
+;;                                (call-method ,(first primary)
+;;                                             ,(rest primary)))
+;;                         ,@(call-methods (reverse after)))
+;;                      `(call-method ,(first primary)))))
+;;        (if around
+;;            `(call-method ,(first around)
+;;                          (,@(rest around)
+;;                           (make-method ,form)))
+;;            form))))
+
+;; My idea is to introduce a new method-combination, SUPERSTANDARD, which has
+;; the STANDARD behaviour except for one modification: Allow the specification of
+;; SUPERAROUND which wraps around all the arounds again (and around all the
+;; before/after if there's no arounds). Only permit a single SUPERAROUND method,
+;; error out and warn if there's multiple. Users should never specify a SUPERAROUND
+;; themselves, it's simply there as part of the machinery to get DEFRECGENERIC
+;; to work.
