@@ -77,7 +77,9 @@
 
 NAME-AND-OPTIONS can be the function name, or it can be a list conforming to the below destructuring-bind on it, where TEST is the comparison test to check for pairwise same functional result. (i.e. compares primary return values using TEST, secondary return values using TEST, and so forth.) If the case is complex and you want different types of comparisons for the different return values, you can instead supply CUSTOM-TEST which must be a function of two arguments, one of which will be the list of return-values as per the expected setup in the generated test, and one of which will be the return-values list of the function call in the test itself.
 
-LAMBDA-LIST and BODY are unsurprising - DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions, after all. Obviously, since DEFRECFUN tests the function as a functional interface (i.e. takes X input, gives Y output), functions that work by side-effects might not be suitable, and some functions might be more suitable after splitting up to expose hidden inner functional interfaces etc."
+BODY has the same semantics as in DEFUN. LAMBDA-LIST has the same semantics as in DEFUN, except that optional and keyword parameters get normalized and fleshed out to contain suppliedp vars too (using gensyms). These changes should be invisible to the end programmer.
+
+DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. Since DEFRECFUN tests the function as a functional interface (i.e. takes X input, gives Y output), functions that work by side-effects might not be suitable, and some functions might be more suitable after splitting up to expose hidden inner functional interfaces etc."
   (multiple-value-bind (required-params
                         optional-params
                         rest-param
