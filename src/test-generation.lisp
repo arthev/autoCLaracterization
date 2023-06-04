@@ -14,8 +14,9 @@
                                                 :test test
                                                 :custom-test custom-test)))
     (bt:with-lock-held (*recorder-lock*)
-      (push test-form
-            (gethash fn-name *characterization-tests*)))))
+      (pushnew test-form
+               (gethash fn-name *characterization-tests*)
+               :test #'equal))))
 
 (defun generate-characterization-test-case (invocation-form
                                             result-form

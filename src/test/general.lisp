@@ -12,3 +12,9 @@
                           ,@(when custom-test `(:custom-test ,custom-test)))
            ,lambda-list
          ,@body)))))
+
+(defmacro with-defrecfun-preamble ((var) form &body body)
+  `(let ((*characterization-tests* (make-hash-table))
+         (*recorder-lock* (bt:make-lock "recorder-lock-fib-test"))
+         (,var ',form))
+     ,@body))

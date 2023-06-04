@@ -52,7 +52,8 @@ Can't serialize everything, given that some data types (e.g. anonymous functions
   number)
 
 (defmethod serialize-object ((symbol symbol))
-  (if (keywordp symbol)
+  (if (and (boundp symbol)
+           (eq symbol (symbol-value symbol)))
       symbol
       `',symbol))
 
