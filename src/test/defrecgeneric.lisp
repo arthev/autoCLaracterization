@@ -4,43 +4,6 @@
 
 (5am:in-suite :defrecgeneric)
 
-(define-method-combination superstandard ()
-        ((around (:around))
-         (superaround (:superaround))
-         (before (:before))
-         (primary () :required t)
-         (after (:after) :order :most-specific-last))
-  "SUPERSTANDARD method combination to wrap a single :superaround around an
-otherwise standard method combination using generic. Hence instrumentive behaviour
-can be added without modifying any existing DEFMETHOD forms. Balks if multiple
-:superaround exist for a given generic function."
-  (flet ((call-methods (methods)
-           (mapcar #'(lambda (method)
-                       `(call-method ,method))
-                   methods)))
-    (let ((form (if (or before after (rest primary))
-                    `(multiple-value-prog1
-                         (progn ,@(call-methods before)
-                                (call-method ,(first primary)
-                                             ,(rest primary)))
-                       ,@(call-methods after))
-                    `(call-method ,(first primary)))))
-      (cond (superaround
-             (if (< 1 (length superaround))
-                 (invalid-method-error
-                  (car superaround)
-                  "Only 1 :superaround permitted per generic, but found: ~S"
-                  superaround)
-                 `(call-method ,(first superaround)
-                               (,@around
-                                (make-method ,form)))))
-            (around
-             `(call-method ,(first around)
-                           (,@(rest around)
-                            (make-method ,form))))
-            (t
-             form)))))
-
 (defvar *tracker* nil)
 
 (defvar *superstandard-test-forms*
