@@ -183,6 +183,13 @@ DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. S
 ;; themselves, it's simply there as part of the machinery to get DEFRECGENERIC
 ;; to work.
 
+(defun multiple-superarounds-error-string-p (e)
+  (search "Only 1 :superaround permitted per generic" (format nil "~A" e)))
+
+(deftype multiple-superarounds-error ()
+  `(and error
+        (satisfies multiple-superarounds-error-string-p)))
+
 (define-method-combination superstandard ()
         ((around (:around))
          (superaround (:superaround))
