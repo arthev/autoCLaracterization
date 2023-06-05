@@ -1,6 +1,6 @@
 ;;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
 
-(asdf:defsystem "autoCLaracterization"
+(asdf:defsystem :autoCLaracterization
   :description "Automatic generation of characterization tests (using 5am)"
   :version "0.0"
   :author "arthev"
