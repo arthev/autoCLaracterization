@@ -46,7 +46,8 @@
   ;; Observe that, from most specific to least specific:
   ;; integer -> rational -> real -> number -> t
   (let ((*tracker* nil))
-    (remove-generic 'superstandard-test)
+    (when (fboundp 'superstandard-test)
+      (remove-generic 'superstandard-test))
     (dolist (form *superstandard-test-forms*)
       (eval form))
     (superstandard-test 5)
