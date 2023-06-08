@@ -7,4 +7,5 @@
   :depends-on (:autoCLaracterization)
   :serial t
   :components ((:file "src/test/general")
-               (:file "src/test/defrecfun")))
+               (:file "src/test/defrecfun")
+               (:file "src/test/defrecgeneric")))

@@ -2,18 +2,21 @@
 
 (5am:def-suite :autoCLaracterization)
 
-(defun load-defrecfun (defun-form &key test custom-test)
-  (destructuring-bind (def name lambda-list &body body) defun-form
-    (assert (eq 'defun def))
+(defun load-defrec (defun-form &key test custom-test)
+  (destructuring-bind (def name lambda-list &body rest) defun-form
+    (assert (member def '(defun defgeneric) :test #'eq))
     (assert (symbolp name))
-    (compile
-     (eval
-      `(defrecfun (,name ,@(when test `(:test ,test))
-                          ,@(when custom-test `(:custom-test ,custom-test)))
-           ,lambda-list
-         ,@body)))))
+    (eval
+     `(,(if (eq def 'defun)
+            'defrecfun
+            'defrecgeneric)
+       (,name ,@(when test `(:test ,test))
+              ,@(when custom-test `(:custom-test ,custom-test)))
+       ,lambda-list
+       ,@rest))
+    (compile name)))
 
-(defmacro with-defrecfun-preamble ((var) form &body body)
+(defmacro with-defrec-preamble ((var) form &body body)
   `(let ((*characterization-tests* (make-hash-table))
          (*recorder-lock* (bt:make-lock "recorder-lock-fib-test"))
          (,var ',form))

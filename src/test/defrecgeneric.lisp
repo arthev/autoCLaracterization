@@ -67,3 +67,34 @@
           (5am:fail "Failed to error out SUPERSTANDARD-TEST call despite multiple :superaround methods present."))
       (multiple-superarounds-error ()
         (5am:pass "Correctly errored out in presence of multiple :superarounds")))))
+
+(5am:test :boring-defrecgeneric ; a simple happy case
+  (with-defrec-preamble (fibdefgeneric)
+                        (defgeneric fibby (n))
+    (remove-generic 'fibby)
+    (load-defrec fibdefgeneric :test '#'=)
+    (eval '(defmethod fibby (n)
+            (let ((s5 (sqrt 5)))
+              (nth-value
+               0
+               (round
+                (* (/ 1 s5)
+                   (- (expt (/ (+ 1 s5) 2) n)
+                      (expt (/ (- 1 s5) 2) n))))))))
+    (compile 'fibby)
+    (5am:is (=   1 (fibby 1)))
+    (5am:is (=   8 (fibby 6)))
+    (5am:is (= 610 (fibby 15)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 3 (length (gethash 'fibby *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'= (list 1)   (multiple-value-list (fibby  1))))
+              (5am:is (every #'= (list 8)   (multiple-value-list (fibby  6))))
+              (5am:is (every #'= (list 610) (multiple-value-list (fibby 15)))))
+            (reverse (gethash 'fibby *characterization-tests*))))))
+
+
+;; test the three cases of gf-lambda-list:
+;; 1) rest included
+;; 2) neither rest nor keys
+;; 3) no rest, but keys
