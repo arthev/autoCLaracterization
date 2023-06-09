@@ -218,7 +218,10 @@ without a &rest for example."
                         allow-other-keys-p
                         aux-params
                         keys-p)
-      (alexandria:parse-ordinary-lambda-list lambda-list)
+      ;; The lambda list we return here will later be fed through
+      ;; FLESH-OUT-LAMBDA-LIST, so normalization at this point leads to subsequent
+      ;; troubles. It does end up normalized and fleshed out eventually, though.
+      (alexandria:parse-ordinary-lambda-list lambda-list :normalize nil)
     (let ((congruent-lambda-list
             (if (or rest-param (not keys-p))
                 lambda-list
