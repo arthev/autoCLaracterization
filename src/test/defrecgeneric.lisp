@@ -118,7 +118,8 @@
                                                  :c 'autumn
                                                  :f 'spring))
                                      (multiple-value-list
-                                      (some-fn 'summer
+                                      (some-fn
+                                       'summer
                                        'winter
                                        'autumn
                                        :e 'potato
@@ -126,6 +127,75 @@
                                        :g 'nocturne)))))
             (reverse (gethash 'some-fn *characterization-tests*))))))
 
+(5am:test :rest-unincluded-generic ; test proper capture when &rest not included
+  (with-defrec-preamble (some-gen)
+                        (defgeneric some-fn (a b
+                                             &optional c
+                                             &key d e &allow-other-keys))
+    (remove-generic 'some-fn)
+    (load-defrec some-gen :test '#'equal)
+    (eval '(defmethod some-fn (a b &optional c &key f &allow-other-keys)
+            (list :a a :b b :c c :f f)))
+    (compile 'some-fn)
+    (5am:is (equal '(:a summer :b winter :c autumn :f spring)
+                   (some-fn 'summer
+                            'winter
+                            'autumn
+                            :e 'potato
+                            :f 'spring
+                            :g 'nocturne)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'some-fn *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'equal (list (list :a 'summer
+                                                 :b 'winter
+                                                 :c 'autumn
+                                                 :f 'spring))
+                                     (multiple-value-list
+                                      (some-fn
+                                       'summer
+                                       'winter
+                                       'autumn
+                                       :e 'potato
+                                       :f 'spring
+                                       :g 'nocturne)))))
+            (reverse (gethash 'some-fn *characterization-tests*))))))
+
+(5am:test :generic-optional ; test proper capture when reqs/optionals only
+  (with-defrec-preamble (some-gen)
+                        (defgeneric some-fn (a b
+                                             &optional c))
+    (remove-generic 'some-fn)
+    (load-defrec some-gen :test '#'equal)
+    (eval '(defmethod some-fn (a b &optional c)
+            (list :a a :b b :c c)))
+    (compile 'some-fn)
+    (5am:is (equal '(:a summer :b winter :c autumn)
+                   (some-fn 'summer
+                            'winter
+                            'autumn)))
+    (5am:is (equal '(:a summer :b winter :c nil)
+                   (some-fn 'summer
+                            'winter)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 2 (length (gethash 'some-fn *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'equal (list (list :a 'summer
+                                                 :b 'winter
+                                                 :c 'autumn))
+                                     (multiple-value-list
+                                      (some-fn
+                                       'summer
+                                       'winter
+                                       'autumn))))
+              (5am:is (every #'equal (list (list :a 'summer
+                                                 :b 'winter
+                                                 :c nil))
+                                     (multiple-value-list
+                                      (some-fn
+                                       'summer
+                                       'winter)))))
+            (reverse (gethash 'some-fn *characterization-tests*))))))
 
 
 
