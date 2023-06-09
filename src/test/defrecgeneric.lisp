@@ -46,7 +46,7 @@
   ;; Observe that, from most specific to least specific:
   ;; integer -> rational -> real -> number -> t
   (let ((*tracker* nil))
-    (remove-generic 'superstandard-test)
+    (remove-fn 'superstandard-test)
     (dolist (form *superstandard-test-forms*)
       (eval form))
     (superstandard-test 5)
@@ -69,10 +69,10 @@
 
 (5am:test :boring-defrecgeneric ; a simple happy case
   (with-defrec-preamble (fibdefgeneric)
-                        (defgeneric fibby (n))
-    (remove-generic 'fibby)
+                        (defgeneric fib (n))
+    (remove-fn 'fib)
     (load-defrec fibdefgeneric :test '#'=)
-    (eval '(defmethod fibby (n)
+    (eval '(defmethod fib (n)
             (let ((s5 (sqrt 5)))
               (nth-value
                0
@@ -80,17 +80,17 @@
                 (* (/ 1 s5)
                    (- (expt (/ (+ 1 s5) 2) n)
                       (expt (/ (- 1 s5) 2) n))))))))
-    (compile 'fibby)
-    (5am:is (=   1 (fibby 1)))
-    (5am:is (=   8 (fibby 6)))
-    (5am:is (= 610 (fibby 15)))
+    (compile 'fib)
+    (5am:is (=   1 (fib 1)))
+    (5am:is (=   8 (fib 6)))
+    (5am:is (= 610 (fib 15)))
     (5am:is (= 1 (hash-table-count *characterization-tests*)))
-    (5am:is (= 3 (length (gethash 'fibby *characterization-tests*))))
+    (5am:is (= 3 (length (gethash 'fib *characterization-tests*))))
     (5am:is
-     (equal '((5am:is (every #'= (list 1)   (multiple-value-list (fibby  1))))
-              (5am:is (every #'= (list 8)   (multiple-value-list (fibby  6))))
-              (5am:is (every #'= (list 610) (multiple-value-list (fibby 15)))))
-            (reverse (gethash 'fibby *characterization-tests*))))))
+     (equal '((5am:is (every #'= (list 1)   (multiple-value-list (fib  1))))
+              (5am:is (every #'= (list 8)   (multiple-value-list (fib  6))))
+              (5am:is (every #'= (list 610) (multiple-value-list (fib 15)))))
+            (reverse (gethash 'fib *characterization-tests*))))))
 
 (5am:test :rest-included-generic ; test proper capture when &rest included
   (with-defrec-preamble (some-gen)
@@ -98,7 +98,7 @@
                                              &optional c
                                              &rest r
                                              &key d e &allow-other-keys))
-    (remove-generic 'some-fn)
+    (remove-fn 'some-fn)
     (load-defrec some-gen :test '#'equal)
     (eval '(defmethod some-fn (a b &optional c &key f &allow-other-keys)
             (list :a a :b b :c c :f f)))
@@ -132,7 +132,7 @@
                         (defgeneric some-fn (a b
                                              &optional c
                                              &key d e &allow-other-keys))
-    (remove-generic 'some-fn)
+    (remove-fn 'some-fn)
     (load-defrec some-gen :test '#'equal)
     (eval '(defmethod some-fn (a b &optional c &key f &allow-other-keys)
             (list :a a :b b :c c :f f)))
@@ -165,7 +165,7 @@
   (with-defrec-preamble (some-gen)
                         (defgeneric some-fn (a b
                                              &optional c))
-    (remove-generic 'some-fn)
+    (remove-fn 'some-fn)
     (load-defrec some-gen :test '#'equal)
     (eval '(defmethod some-fn (a b &optional c)
             (list :a a :b b :c c)))
@@ -196,10 +196,3 @@
                                        'summer
                                        'winter)))))
             (reverse (gethash 'some-fn *characterization-tests*))))))
-
-
-
-;; test the three cases of gf-lambda-list:
-;; 1) rest included
-;; 2) neither rest nor keys
-;; 3) no rest, but keys

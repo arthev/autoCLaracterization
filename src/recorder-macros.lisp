@@ -276,16 +276,3 @@ DEFRECGENERIC is meant to be 'dropped in' instead of DEFGENERIC for existing gen
                :optional-params optional-params
                :rest-param rest-param
                :keyword-params keyword-params)))))))
-
-
-
-;; TODO: Observe that DEFRECGENERIC doesn't contain itself to recording only
-;; the outermost function call. We can avoid this by using a dynamic, standard
-;; strategy. But if we do that, we might as well use the same strategy for
-;; DEFRECFUN and save the whole LABELS part.
-;; There's essentially three main approaches:
-;; 1) record all fn calls
-;; 2) record outer fn call only (i.e. first encountered recfun)
-;; 3) record outer fn call only per fn
-;; I'm not yet committed to either idea, but it's clearly a design question.
-;; Though, perhaps, I weakly prefer approach 3.

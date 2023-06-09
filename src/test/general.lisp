@@ -22,9 +22,10 @@
          (,var ',form))
      ,@body))
 
-(defun remove-generic (name)
+(defun remove-fn (name)
   (when (fboundp name)
     (let ((fn (symbol-function name)))
-      (dolist (method (c2mop:generic-function-methods fn))
-        (remove-method fn method)))
+      (when (typep fn 'generic-function)
+        (dolist (method (c2mop:generic-function-methods fn))
+          (remove-method fn method))))
     (fmakunbound name)))
