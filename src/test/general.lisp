@@ -23,7 +23,8 @@
      ,@body))
 
 (defun remove-generic (name)
-  (let ((fn (symbol-function name)))
-    (dolist (method (c2mop:generic-function-methods fn))
-      (remove-method fn method)))
-  (fmakunbound name))
+  (when (fboundp name)
+    (let ((fn (symbol-function name)))
+      (dolist (method (c2mop:generic-function-methods fn))
+        (remove-method fn method)))
+    (fmakunbound name)))

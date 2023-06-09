@@ -46,8 +46,7 @@
   ;; Observe that, from most specific to least specific:
   ;; integer -> rational -> real -> number -> t
   (let ((*tracker* nil))
-    (when (fboundp 'superstandard-test)
-      (remove-generic 'superstandard-test))
+    (remove-generic 'superstandard-test)
     (dolist (form *superstandard-test-forms*)
       (eval form))
     (superstandard-test 5)
@@ -92,6 +91,42 @@
               (5am:is (every #'= (list 8)   (multiple-value-list (fibby  6))))
               (5am:is (every #'= (list 610) (multiple-value-list (fibby 15)))))
             (reverse (gethash 'fibby *characterization-tests*))))))
+
+(5am:test :rest-included-generic ; test proper capture when &rest included
+  (with-defrec-preamble (some-gen)
+                        (defgeneric some-fn (a b
+                                             &optional c
+                                             &rest r
+                                             &key d e &allow-other-keys))
+    (remove-generic 'some-fn)
+    (load-defrec some-gen :test '#'equal)
+    (eval '(defmethod some-fn (a b &optional c &key f &allow-other-keys)
+            (list :a a :b b :c c :f f)))
+    (compile 'some-fn)
+    (5am:is (equal '(:a summer :b winter :c autumn :f spring)
+                   (some-fn 'summer
+                            'winter
+                            'autumn
+                            :e 'potato
+                            :f 'spring
+                            :g 'nocturne)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'some-fn *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'equal (list (list :a 'summer
+                                                 :b 'winter
+                                                 :c 'autumn
+                                                 :f 'spring))
+                                     (multiple-value-list
+                                      (some-fn 'summer
+                                       'winter
+                                       'autumn
+                                       :e 'potato
+                                       :f 'spring
+                                       :g 'nocturne)))))
+            (reverse (gethash 'some-fn *characterization-tests*))))))
+
+
 
 
 ;; test the three cases of gf-lambda-list:
