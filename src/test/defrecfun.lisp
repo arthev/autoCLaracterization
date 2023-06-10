@@ -1,5 +1,7 @@
 (in-package :autoCLaracterization)
 
+(declaim #+sbcl(sb-ext:muffle-conditions style-warning))
+
 (5am:def-suite :defrecfun :in :autoCLaracterization)
 
 (5am:in-suite :defrecfun)

@@ -22,6 +22,7 @@
   `(let ((*characterization-tests* (make-hash-table))
          (*recorder-lock* (bt:make-lock "recorder-lock-fib-test"))
          (,var ',form))
+     #+sbcl(declaim (sb-ext:muffle-conditions style-warning))
      ,@body))
 
 (defun remove-fn (name)
