@@ -1,23 +1,10 @@
 ## Todo:
 
 1) Suppress warnings in the test code. Unnecessary noise. It's ugly test code.
-2) Add :strategy to defrecs, on how to deal with recursive recording.
-;; TODO: Observe that DEFRECGENERIC doesn't contain itself to recording only
-;; the outermost function call. We can avoid this by using a dynamic, standard
-;; strategy. But if we do that, we might as well use the same strategy for
-;; DEFRECFUN and save the whole LABELS part.
-;; There's essentially three main approaches:
-;; 1) record all fn calls
-;; 2) record outer fn call only (i.e. first encountered recfun)
-;; 3) record outer fn call only per fn
-;; I'm not yet committed to either idea, but it's clearly a design question.
-;; Though, perhaps, I weakly prefer approach 3.
-I think this can be implemented simply through two dynamics:
-- a map of all instrumented functions and the depths of their recursions,
-with instrumented functions incfing and decfing the thread-local count
-- an override to e.g. use 1 as default count value instead of 0 so functions won't generate test cases, in case someone wants the outermost instrumented functions only in all cases.
 3) By using handler-bind to intercept errors, it ought to be possible to automatically characterize errors too. In case that's unwanted, just gate the behaviour behind a control. Can probably set up something clever side-effecty to correctly handle restart cases too where we intercept an error and then actually do compute a functional normal return value from the function we're autoClaracterizing.
 4) Add a system using macroexpand-hook (most likely) so that instead of instrumenting a codebase by changing code forms in-source, an additive file is enough (though of course you still need to reload/recompile your system code). Keeps the information about the instrumentation localized, less invasive, easier to turn on and off as wanted. Can keep the file around so e.g. ready to re-characterize at some future point.
 5) Such a macroexpand-hook system will have to handle the case where the codebase under instrumentation doesn't contain the `defgeneric` forms, but only raw `defmethod`s. So perhaps check on each eligible `defmethod` form whether to generate a suitable `defgeneric`.
 6) Update README and package definition, hehe
+- DEFRECFUN & DEFRECGENERIC both supported
+- describe the programmer interface (:test, :custom-test, :strategy, macroexpand-hook using setup)...
 7) Try out actual usage in a codebase
