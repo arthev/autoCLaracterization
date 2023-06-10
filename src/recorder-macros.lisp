@@ -1,5 +1,7 @@
 (in-package :autoCLaracterization)
 
+;;;; Runtime helpers
+
 (defvar *current-recorder-depths* nil) ; nil in global space, dynamic hashtable
 
 (defun record-according-to-strategy-p (name strategy
@@ -32,6 +34,61 @@
     (:all nil)
     (:outer-only (gethash :inside-outer-only depths))
     (:entry-only (gethash name depths 0))))
+
+;;;; Lambda-list helpers
+
+(defun fleshed-out-optional-params-p (params)
+  (every (lambda (param)
+           (destructuring-bind (name init suppliedp) param
+             (declare (ignore name init))
+             suppliedp))
+         params))
+
+(defun fleshed-out-keyword-params-p (params)
+  (every (lambda (param)
+           (destructuring-bind ((keyword-name name) init suppliedp) param
+             (declare (ignore keyword-name name init))
+             suppliedp))
+         params))
+
+(defun flesh-out-normalized-optional-params (params)
+  (mapcar (lambda (param)
+            (destructuring-bind (name init suppliedp) param
+              `(,name ,init ,(if suppliedp
+                                 suppliedp
+                                 (gensym (symbol-name name))))))
+          params))
+
+(defun flesh-out-normalized-keyword-params (params)
+  (mapcar (lambda (param)
+            (destructuring-bind ((keyword-name name) init suppliedp) param
+              `((,keyword-name ,name) ,init ,(if suppliedp
+                                                 suppliedp
+                                                 (gensym (symbol-name name))))))
+          params))
+
+(defun flesh-out-lambda-list (lambda-list)
+  (multiple-value-bind (required-params
+                        optional-params
+                        rest-param
+                        keyword-params
+                        allow-other-keys-p
+                        aux-params
+                        keys-p)
+      (alexandria:parse-ordinary-lambda-list lambda-list)
+    (let* ((optional-params (flesh-out-normalized-optional-params
+                             optional-params))
+           (keyword-params (flesh-out-normalized-keyword-params
+                            keyword-params)))
+      (make-ordinary-lambda-list required-params
+                                 optional-params
+                                 rest-param
+                                 keyword-params
+                                 allow-other-keys-p
+                                 aux-params
+                                 keys-p))))
+
+;;;; Macroexpansion helpers
 
 (defun generate-function-body (nexty-form &key test
                                             custom-test
@@ -111,75 +168,6 @@
                         in keyword-params
                       collect `(when ,suppliedp `(,,keyword-name
                                                   ,,name))))))))
-
-(defun fleshed-out-optional-params-p (params)
-  (every (lambda (param)
-           (destructuring-bind (name init suppliedp) param
-             (declare (ignore name init))
-             suppliedp))
-         params))
-
-(defun fleshed-out-keyword-params-p (params)
-  (every (lambda (param)
-           (destructuring-bind ((keyword-name name) init suppliedp) param
-             (declare (ignore keyword-name name init))
-             suppliedp))
-         params))
-
-(defun flesh-out-normalized-optional-params (params)
-  (mapcar (lambda (param)
-            (destructuring-bind (name init suppliedp) param
-              `(,name ,init ,(if suppliedp
-                                 suppliedp
-                                 (gensym (symbol-name name))))))
-          params))
-
-(defun flesh-out-normalized-keyword-params (params)
-  (mapcar (lambda (param)
-            (destructuring-bind ((keyword-name name) init suppliedp) param
-              `((,keyword-name ,name) ,init ,(if suppliedp
-                                                 suppliedp
-                                                 (gensym (symbol-name name))))))
-          params))
-
-(defun make-ordinary-lambda-list (required-params
-                                  optional-params
-                                  rest-param
-                                  keyword-params
-                                  allow-other-keys-p
-                                  aux-params
-                                  keys-p)
-  `(,@required-params
-    ,@(when optional-params
-        `(&optional ,@optional-params))
-    ,@(when rest-param
-        `(&rest ,rest-param))
-    ,@(when keys-p
-        `(&key ,@keyword-params ,@(when allow-other-keys-p
-                                    `(&allow-other-keys))))
-    ,@(when aux-params
-        `(&aux ,@aux-params))))
-
-(defun flesh-out-lambda-list (lambda-list)
-  (multiple-value-bind (required-params
-                        optional-params
-                        rest-param
-                        keyword-params
-                        allow-other-keys-p
-                        aux-params
-                        keys-p)
-      (alexandria:parse-ordinary-lambda-list lambda-list)
-    (let* ((optional-params (flesh-out-normalized-optional-params
-                             optional-params))
-           (keyword-params (flesh-out-normalized-keyword-params
-                            keyword-params)))
-      (make-ordinary-lambda-list required-params
-                                 optional-params
-                                 rest-param
-                                 keyword-params
-                                 allow-other-keys-p
-                                 aux-params
-                                 keys-p))))
 
 ;;;; DEFRECFUN section
 

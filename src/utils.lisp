@@ -52,3 +52,21 @@
             (string arg)
             (symbol (symbol-name arg)))
           :keyword))
+
+(defun make-ordinary-lambda-list (required-params
+                                  optional-params
+                                  rest-param
+                                  keyword-params
+                                  allow-other-keys-p
+                                  aux-params
+                                  keys-p)
+  `(,@required-params
+    ,@(when optional-params
+        `(&optional ,@optional-params))
+    ,@(when rest-param
+        `(&rest ,rest-param))
+    ,@(when keys-p
+        `(&key ,@keyword-params ,@(when allow-other-keys-p
+                                    `(&allow-other-keys))))
+    ,@(when aux-params
+        `(&aux ,@aux-params))))
