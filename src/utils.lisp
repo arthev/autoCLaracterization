@@ -70,3 +70,9 @@
                                     `(&allow-other-keys))))
     ,@(when aux-params
         `(&aux ,@aux-params))))
+
+(defun lfix (fn &rest args)
+  "Do a partial function application,
+   by fixing the leftmost args as ARGS."
+  (lambda (&rest more-args)
+    (apply fn (append args more-args))))

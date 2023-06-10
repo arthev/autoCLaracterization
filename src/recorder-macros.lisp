@@ -105,7 +105,7 @@
   ;; That is, :outer-only affects _all_ recorders that happen under the
   ;; execution of the strategy, whereas :all and :entry-only are recorder-local.
   (with-gensyms (invocation-form return-values result-form
-                 record-p old-recorder-state _)
+                 record-p old-recorder-state _ c)
     `(let* ((*current-recorder-depths*
               (or *current-recorder-depths* (make-hash-table :test #'eq)))
             (,record-p (record-according-to-strategy-p
@@ -122,24 +122,32 @@
                                   ',name ,strategy
                                   :depths *current-recorder-depths*)))
        (unwind-protect
-            (let* ((,_ (update-recorder-state-according-to-strategy
-                        ',name ,strategy
-                        :depths *current-recorder-depths*))
-                   (,return-values
-                     (multiple-value-list
-                      ,nexty-form))
-                   (,result-form
-                     (when ,record-p
-                       (generate-result-form ,return-values))))
-              (declare (ignore ,_))
-              (when ,record-p
-                (record-characterization-test
-                 ,invocation-form
-                 ,result-form
-                 ,@(if custom-test-supplied-p
-                       `(:custom-test ',custom-test)
-                       `(:test ',test))))
-              (values-list ,return-values))
+            (handler-bind ((condition
+                             (lambda (,c)
+                               ;; Maybe register, but don't handle
+                               (when (some (lfix #'typep ,c)
+                                           (listify *record-conditions*))
+                                 (record-condition-characterization-test
+                                  ,invocation-form
+                                  ,c)))))
+              (let* ((,_ (update-recorder-state-according-to-strategy
+                          ',name ,strategy
+                          :depths *current-recorder-depths*))
+                     (,return-values
+                       (multiple-value-list
+                        ,nexty-form))
+                     (,result-form
+                       (when ,record-p
+                         (generate-result-form ,return-values))))
+                (declare (ignore ,_))
+                (when ,record-p
+                  (record-characterization-test
+                   ,invocation-form
+                   ,result-form
+                   ,@(if custom-test-supplied-p
+                         `(:custom-test ',custom-test)
+                         `(:test ',test))))
+                (values-list ,return-values)))
          (update-recorder-state-according-to-strategy
           ',name ,strategy
           :depths *current-recorder-depths*

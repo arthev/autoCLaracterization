@@ -269,3 +269,73 @@
     (5am:is (= 2 (hash-table-count *characterization-tests*)))
     (5am:is (= 1 (length (gethash 'mreven-p *characterization-tests*))))
     (5am:is (= 1 (length (gethash 'mrodd-p *characterization-tests*))))))
+
+
+(5am:test :records-desired-conditions
+  (with-defrec-preamble (somefun)
+                        (defun some-fn ()
+                          (error "whatever"))
+    (load-defrec somefun)
+    (5am:signals simple-error
+      (some-fn))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'some-fn *characterization-tests*))))
+    (5am:is
+     (equal '((5am:signals simple-error
+                (some-fn)))
+            (reverse (gethash 'some-fn *characterization-tests*))))))
+
+(5am:test :nil-means-no-condition-record
+  (with-defrec-preamble (somefun)
+                        (defun some-fn ()
+                          (error "whatever"))
+    (let ((*record-conditions* nil))
+      (load-defrec somefun)
+      (5am:signals simple-error
+        (some-fn))
+      (5am:is (= 0 (hash-table-count *characterization-tests*)))
+      (5am:is (= 0 (length (gethash 'some-fn *characterization-tests*)))))))
+
+(5am:test :records-specific-conditions
+  (with-defrec-preamble (somefun)
+                        (defun some-fn (a)
+                          (if a
+                              (+ 2 'a)
+                              (error "whatever")))
+    (let ((*record-conditions* 'type-error))
+      (load-defrec somefun)
+      (5am:signals simple-error
+        (some-fn nil))
+      (5am:is (= 0 (hash-table-count *characterization-tests*)))
+      (5am:is (= 0 (length (gethash 'some-fn *characterization-tests*))))
+      (5am:signals type-error
+        (some-fn t))
+      (5am:is (= 1 (hash-table-count *characterization-tests*)))
+      (5am:is (= 1 (length (gethash 'some-fn *characterization-tests*))))
+      (5am:is
+       (equal '((5am:signals simple-type-error
+                  (some-fn t)))
+              (reverse (gethash 'some-fn *characterization-tests*)))))))
+
+(5am:test :records-conditions-and-values-if-local-restarts
+  (with-defrec-preamble (somefun)
+                        (defun some-fn ()
+                          (restart-case
+                              (+ 2 'a)
+                            (move-along ()
+                              0)))
+    (load-defrec somefun)
+    (compile (eval '(defun move-along-invoker (fn)
+                     (handler-bind ((error
+                                      (lambda (e)
+                                        (invoke-restart 'move-along))))
+                       (funcall fn)))))
+    (5am:is (= 0 (move-along-invoker #'some-fn)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 2 (length (gethash 'some-fn *characterization-tests*))))
+    (5am:is
+     (equal '((5am:signals simple-type-error
+                (some-fn))
+              (5am:is (every #'eql (list 0)
+                                   (multiple-value-list (some-fn)))))
+            (reverse (gethash 'some-fn *characterization-tests*))))))
