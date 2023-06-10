@@ -196,32 +196,28 @@ DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. S
                               (custom-test nil custom-test-supplied-p)
                               (strategy *default-recorder-strategy*))
       (listify name-and-options)
-    (with-gensyms (inner-fn)
-      (let* ((new-body (subst inner-fn name body))
-             (lambda-list (flesh-out-lambda-list lambda-list)))
-        (multiple-value-bind (required-params
-                              optional-params
-                              rest-param
-                              keyword-params
-                              allow-other-keys-p
-                              aux-params
-                              keys-p)
-            (alexandria:parse-ordinary-lambda-list lambda-list)
-          (declare (ignore allow-other-keys-p aux-params keys-p))
-          `(defun ,name ,lambda-list
-             ,(generate-function-body
-               `(labels ((,inner-fn ,lambda-list
-                           ,@new-body))
-                  ,@new-body)
-               :test test
-               :custom-test custom-test
-               :custom-test-supplied-p custom-test-supplied-p
-               :strategy strategy
-               :name name
-               :required-params required-params
-               :optional-params optional-params
-               :rest-param rest-param
-               :keyword-params keyword-params)))))))
+    (let* ((lambda-list (flesh-out-lambda-list lambda-list)))
+      (multiple-value-bind (required-params
+                            optional-params
+                            rest-param
+                            keyword-params
+                            allow-other-keys-p
+                            aux-params
+                            keys-p)
+          (alexandria:parse-ordinary-lambda-list lambda-list)
+        (declare (ignore allow-other-keys-p aux-params keys-p))
+        `(defun ,name ,lambda-list
+           ,(generate-function-body
+             `(progn ,@body)
+             :test test
+             :custom-test custom-test
+             :custom-test-supplied-p custom-test-supplied-p
+             :strategy strategy
+             :name name
+             :required-params required-params
+             :optional-params optional-params
+             :rest-param rest-param
+             :keyword-params keyword-params))))))
 
 ;;;; DEFRECGENERIC section
 
