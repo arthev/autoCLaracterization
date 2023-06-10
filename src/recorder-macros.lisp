@@ -1,33 +1,92 @@
 (in-package :autoCLaracterization)
 
+(defvar *current-recorder-depths* nil) ; nil in global space, dynamic hashtable
+
+(defun record-according-to-strategy-p (name strategy
+                                       &key (depths *current-recorder-depths*))
+  (cond ((gethash :inside-outer-only depths)
+         nil)
+        ((eq :entry-only strategy)
+         (zerop (gethash name depths 0)))
+        (t ; strategy is :ALL or it's :OUTER-ONLY without being inside one yet
+         t)))
+
+(defun update-recorder-state-according-to-strategy (name strategy
+                                                    &key
+                                                      (depths
+                                                       *current-recorder-depths*)
+                                                      (value nil value-supplied-p))
+  (ecase strategy
+    (:all nil)
+    (:outer-only (setf (gethash :inside-outer-only depths) (if value-supplied-p
+                                                               value
+                                                               t)))
+    (:entry-only (setf (gethash name depths) (if value-supplied-p
+                                                 value
+                                                 (1+ (gethash name depths 0)))))))
+
+(defun recorder-state-according-to-strategy (name strategy
+                                             &key (depths
+                                                   *current-recorder-depths*))
+  (ecase strategy
+    (:all nil)
+    (:outer-only (gethash :inside-outer-only depths))
+    (:entry-only (gethash name depths 0))))
+
 (defun generate-function-body (nexty-form &key test
                                             custom-test
                                             custom-test-supplied-p
+                                            strategy
                                             name
                                             required-params
                                             optional-params
                                             rest-param
                                             keyword-params)
   "NEXTY-FORM is doing the 'actual function call' etc. It's a form to ,slice in."
-  (with-gensyms (invocation-form return-values result-form)
-    `(let* ((,invocation-form
-              ,(generate-generate-invocation-form name
-                                                  required-params
-                                                  optional-params
-                                                  rest-param
-                                                  keyword-params))
-            (,return-values
-              (multiple-value-list
-               ,nexty-form))
-            (,result-form
-              (generate-result-form ,return-values)))
-       (record-characterization-test
-        ,invocation-form
-        ,result-form
-        ,@(if custom-test-supplied-p
-              `(:custom-test ',custom-test)
-              `(:test ',test)))
-       (values-list ,return-values))))
+  (assert (member strategy '(:all :outer-only :entry-only)))
+  ;; Note that :outer-only takes precedence over the other two and block them.
+  ;; That is, :outer-only affects _all_ recorders that happen under the
+  ;; execution of the strategy, whereas :all and :entry-only are recorder-local.
+  (with-gensyms (invocation-form return-values result-form
+                 record-p old-recorder-state _)
+    `(let* ((*current-recorder-depths*
+              (or *current-recorder-depths* (make-hash-table :test #'eq)))
+            (,record-p (record-according-to-strategy-p
+                        ',name ,strategy
+                        :depths *current-recorder-depths*))
+            (,invocation-form
+              (when ,record-p
+                ,(generate-generate-invocation-form name
+                                                    required-params
+                                                    optional-params
+                                                    rest-param
+                                                    keyword-params)))
+            (,old-recorder-state (recorder-state-according-to-strategy
+                                  ',name ,strategy
+                                  :depths *current-recorder-depths*)))
+       (unwind-protect
+            (let* ((,_ (update-recorder-state-according-to-strategy
+                        ',name ,strategy
+                        :depths *current-recorder-depths*))
+                   (,return-values
+                     (multiple-value-list
+                      ,nexty-form))
+                   (,result-form
+                     (when ,record-p
+                       (generate-result-form ,return-values))))
+              (declare (ignore ,_))
+              (when ,record-p
+                (record-characterization-test
+                 ,invocation-form
+                 ,result-form
+                 ,@(if custom-test-supplied-p
+                       `(:custom-test ',custom-test)
+                       `(:test ',test))))
+              (values-list ,return-values))
+         (update-recorder-state-according-to-strategy
+          ',name ,strategy
+          :depths *current-recorder-depths*
+          :value ,old-recorder-state)))))
 
 (defun generate-generate-invocation-form (name required-params optional-params rest-param keyword-params)
   (assert (fleshed-out-optional-params-p optional-params))
@@ -127,14 +186,15 @@
 (defmacro defrecfun (name-and-options lambda-list &body body)
   "Macro to set up automatic capture of characterization tests for arbitrary functions with minimal setup/hassle.
 
-NAME-AND-OPTIONS can be the function name, or it can be a list conforming to the below destructuring-bind on it, where TEST is the comparison test to check for pairwise same functional result. (i.e. compares primary return values using TEST, secondary return values using TEST, and so forth.) If the case is complex and you want different types of comparisons for the different return values, you can instead supply CUSTOM-TEST which must be a function of two arguments, one of which will be the list of return-values as per the expected setup in the generated test, and one of which will be the return-values list of the function call in the test itself.
+NAME-AND-OPTIONS can be the function name, or it can be a list conforming to the below destructuring-bind on it, where TEST is the comparison test to check for pairwise same functional result. (i.e. compares primary return values using TEST, secondary return values using TEST, and so forth.) If the case is complex and you want different types of comparisons for the different return values, you can instead supply CUSTOM-TEST which must be a function of two arguments, one of which will be the list of return-values as per the expected setup in the generated test, and one of which will be the return-values list of the function call in the test itself. STRATEGY is one of (:all :outer-only :entry-only) where :all records all invocations, :outer-only only records the outermost invocation at any point, and :entry-only records the outermost invocation of all invoked recorders.
 
 BODY has the same semantics as in DEFUN. LAMBDA-LIST has the same semantics as in DEFUN, except that optional and keyword parameters get normalized and fleshed out to contain suppliedp vars too (using gensyms). These changes should be invisible to the end programmer.
 
 DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. Since DEFRECFUN tests the function as a functional interface (i.e. takes X input, gives Y output), functions that work by side-effects might not be suitable, and some functions might be more suitable after splitting up to expose hidden inner functional interfaces etc."
   (destructuring-bind (name &key
                               (test '#'eql)
-                              (custom-test nil custom-test-supplied-p))
+                              (custom-test nil custom-test-supplied-p)
+                              (strategy *default-recorder-strategy*))
       (listify name-and-options)
     (with-gensyms (inner-fn)
       (let* ((new-body (subst inner-fn name body))
@@ -156,6 +216,7 @@ DEFRECFUN is meant to be 'dropped in' instead of DEFUN for existing functions. S
                :test test
                :custom-test custom-test
                :custom-test-supplied-p custom-test-supplied-p
+               :strategy strategy
                :name name
                :required-params required-params
                :optional-params optional-params
@@ -237,7 +298,7 @@ without a &rest for example."
 (defmacro defrecgeneric (name-and-options lambda-list &body options)
   "Macro to set up automatic capture of characterization tests for arbitrary generic functions with minimal setup/hassle.
 
-NAME-AND-OPTIONS can be the generic function name, or it can be a list conforming to the below destructuring-bind on it, where TEST is the comparison test to check for pairwise same functional result. (i.e. compares primary return values using TEST, secondary return values using TEST, and so forth.) If the case is complex and you want different types of comparisons for the different return values, you can instead supply CUSTOM-TEST which must be a function of two arguments, one of which will be the list of return-values as per the expected setup in the generated test, and one of which will be the return-values list of the call in the test itself.
+NAME-AND-OPTIONS can be the generic function name, or it can be a list conforming to the below destructuring-bind on it, where TEST is the comparison test to check for pairwise same functional result. (i.e. compares primary return values using TEST, secondary return values using TEST, and so forth.) If the case is complex and you want different types of comparisons for the different return values, you can instead supply CUSTOM-TEST which must be a function of two arguments, one of which will be the list of return-values as per the expected setup in the generated test, and one of which will be the return-values list of the call in the test itself. STRATEGY is one of (:all :outer-only :entry-only) where :all records all invocations, :outer-only only records the outermost invocation at any point, and :entry-only records the outermost invocation of all invoked recorders.
 
 OPTIONS has the same semantics as in DEFGENERIC save that :METHOD-COMBINATION is not available (because DEFRECGENERIC fills it in automatically). LAMBDA-LIST has the same semantics as in DEFGENERIC.
 
@@ -247,7 +308,8 @@ DEFRECGENERIC is meant to be 'dropped in' instead of DEFGENERIC for existing gen
       (error "DEFRECGENERIC doesn't permit option ~S" entry)))
   (destructuring-bind (name &key
                               (test '#'eql)
-                              (custom-test nil custom-test-supplied-p))
+                              (custom-test nil custom-test-supplied-p)
+                              (strategy *default-recorder-strategy*))
       (listify name-and-options)
     (let ((method-lambda-list (flesh-out-lambda-list
                                (generate-defrecgeneric-method-lambda-list
@@ -271,6 +333,7 @@ DEFRECGENERIC is meant to be 'dropped in' instead of DEFGENERIC for existing gen
                :test test
                :custom-test custom-test
                :custom-test-supplied-p custom-test-supplied-p
+               :strategy strategy
                :name name
                :required-params required-params
                :optional-params optional-params
