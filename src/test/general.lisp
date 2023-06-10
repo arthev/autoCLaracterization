@@ -2,16 +2,18 @@
 
 (5am:def-suite :autoCLaracterization)
 
-(defun load-defrec (defun-form &key test custom-test)
+(defun load-defrec (defun-form &key test custom-test (strategy :entry-only))
   (destructuring-bind (def name lambda-list &body rest) defun-form
     (assert (member def '(defun defgeneric) :test #'eq))
     (assert (symbolp name))
+    (assert (member strategy '(:all :outer-only :entry-only)))
     (eval
      `(,(if (eq def 'defun)
             'defrecfun
             'defrecgeneric)
        (,name ,@(when test `(:test ,test))
-              ,@(when custom-test `(:custom-test ,custom-test)))
+              ,@(when custom-test `(:custom-test ,custom-test))
+              :strategy ,strategy)
        ,lambda-list
        ,@rest))
     (compile name)))

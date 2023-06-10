@@ -6,14 +6,14 @@
 
 (5am:test :fib ; tests required
   (with-defrec-preamble (fibdefun)
-                           (defun fib (n)
-                             (if (<= n 1)
-                                 n
+                        (defun fib (n)
+                             (if (<= n 2)
+                                 1
                                  (+ (fib (- n 1))
                                     (fib (- n 2)))))
     (load-defrec fibdefun :test '#'=)
     (5am:is (=   1 (fib 1)))
-    (5am:is (=   8 (fib 6)))
+    (5am:is (=  8 (fib 6)))
     (5am:is (= 610 (fib 15)))
     (5am:is (= 1 (hash-table-count *characterization-tests*)))
     (5am:is (= 3 (length (gethash 'fib *characterization-tests*))))
@@ -202,3 +202,68 @@
                        (multiple-value-list
                         (partial 1 2 2)))))
             (reverse (gethash 'partial *characterization-tests*))))))
+
+(5am:test :all-strategy
+  (with-defrec-preamble (fibdefun)
+                        (defun fib (n)
+                          (if (<= n 2)
+                              1
+                              (+ (fib (- n 1))
+                                 (fib (- n 2)))))
+    (load-defrec fibdefun :test '#'= :strategy :all)
+    (5am:is (=  21 (fib 8)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 8 (length (gethash 'fib *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'= (list  1)   (multiple-value-list (fib  2))))
+              (5am:is (every #'= (list  1)   (multiple-value-list (fib  1))))
+              (5am:is (every #'= (list  2)   (multiple-value-list (fib  3))))
+              (5am:is (every #'= (list  3)   (multiple-value-list (fib  4))))
+              (5am:is (every #'= (list  5)   (multiple-value-list (fib  5))))
+              (5am:is (every #'= (list  8)   (multiple-value-list (fib  6))))
+              (5am:is (every #'= (list 13)   (multiple-value-list (fib  7))))
+              (5am:is (every #'= (list 21)   (multiple-value-list (fib  8)))))
+            (reverse (gethash 'fib *characterization-tests*))))))
+
+(5am:test :outer-only-strategy
+  (with-defrec-preamble (fibdefun)
+                        (defun fib (n)
+                          (if (<= n 2)
+                              1
+                              (+ (fib (- n 1))
+                                 (fib (- n 2)))))
+    (load-defrec fibdefun :test '#'= :strategy :all)
+    (load-defrec '(defun square-fib (n)
+                   (* (fib n) (fib n)))
+                 :test '#'=
+                 :strategy :outer-only)
+    (5am:is (=  441 (square-fib 8)))
+    (5am:is (= 1 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'square-fib *characterization-tests*))))
+    (5am:is (= 0 (length (gethash 'fib *characterization-tests*))))
+    (5am:is
+     (equal '((5am:is (every #'= (list  441)
+                                 (multiple-value-list (square-fib 8)))))
+            (reverse (gethash 'square-fib *characterization-tests*))))
+    (5am:is (= 21 (fib 8)))
+    (5am:is (= 2 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'square-fib *characterization-tests*))))
+    (5am:is (= 8 (length (gethash 'fib *characterization-tests*))))))
+
+
+(5am:test :mutually-recursive-entry-only-strategy
+  (with-defrec-preamble (mrevenfun)
+                        (defun mreven-p (n)
+                          (if (zerop n)
+                              t
+                              (mrodd-p (1- n))))
+    (load-defrec mrevenfun)
+    (load-defrec '(defun mrodd-p (n)
+                   (if (zerop n)
+                       nil
+                       (mreven-p (1- n)))))
+    (5am:is (eq t
+                (mreven-p 10)))
+    (5am:is (= 2 (hash-table-count *characterization-tests*)))
+    (5am:is (= 1 (length (gethash 'mreven-p *characterization-tests*))))
+    (5am:is (= 1 (length (gethash 'mrodd-p *characterization-tests*))))))
