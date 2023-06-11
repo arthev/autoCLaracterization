@@ -17,5 +17,6 @@
                (:file "serialization")
                (:file "test-generation")
                (:file "recorder-macros")
+               (:file "hooking")
                (:file "interface")
 	       ))

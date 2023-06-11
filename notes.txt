@@ -1,7 +1,9 @@
 ## Todo:
 
 4) Add a system using macroexpand-hook (most likely) so that instead of instrumenting a codebase by changing code forms in-source, an additive file is enough (though of course you still need to reload/recompile your system code). Keeps the information about the instrumentation localized, less invasive, easier to turn on and off as wanted. Can keep the file around so e.g. ready to re-characterize at some future point.
-5) Such a macroexpand-hook system will have to handle the case where the codebase under instrumentation doesn't contain the `defgeneric` forms, but only raw `defmethod`s. So perhaps check on each eligible `defmethod` form whether to generate a suitable `defgeneric`.
+5) Such a macroexpand-hook system will have to handle the case where the codebase under instrumentation doesn't contain the `defgeneric` forms, but only raw `defmethod`s. So perhaps check on each eligible `defmethod` form whether to generate
+a suitable `defgeneric`.
+-- This can be done in a MOPy fashion by inspecting the available methods/the generic function definition, to see if e.g. a superaround confirming to the lambda-list exists. So should be possible without any new awkward tables etc.
 6) Update README and package definition, hehe
 - DEFRECFUN & DEFRECGENERIC both supported
 - describe the programmer interface (:test, :custom-test, :strategy, macroexpand-hook using setup)...
