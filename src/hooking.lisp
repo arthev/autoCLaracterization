@@ -29,7 +29,16 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
 
 (defvar *old-macroexpand-hook* *macroexpand-hook*)
 
-(defparameter *form-buffer* (make-instance 'fixed-size-buffer :size 10))
+(defparameter *form-buffer*
+  ;; We don't want to keep around more forms than "the current" recorder
+  ;; macroexpansion requires, ideally. Well, DEFRECFUN requires 1 form (the defun),
+  ;; while DEFRECGENERIC requires two: (progn (defgeneric ...) (defmethod ...))
+  ;; Might be DEFMETHOD will require more than one two. But in any case, we can
+  ;; simply set the size to the max of these and then insert multiples of the
+  ;; fewer forms. Potentially find a least common multiple as size, if necessary.
+  ;; Since we only register new forms when we encounter _new_ defuns etc., this
+  ;; ought to work out nicely.
+  (make-instance 'fixed-size-buffer :size 10))
 
 (defun recently-seen-form-p (form)
   (member form (buffer-contents *form-buffer*) :test #'equal))
@@ -41,6 +50,15 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
   (unless (eq 'defun (car form))
     (error "REGISTER-SEEN-FORM for 'DEFUN invoked on FORM not conforming to output of DEFRECFUN: ~S" form))
   (buffer-push *form-buffer* form))
+
+(defmethod register-seen-form ((type (eql 'defgeneric)) form)
+  (destructuring-bind (sprog1 defgeneric-form defmethod-form) form
+    (unless (and (eq 'prog1 sprog1)
+                 (eq 'defgeneric (car defgeneric-form))
+                 (eq 'defmethod (car defmethod-form)))
+      (error "REGISTER-SEEN-FORM for 'DEFGENERIC invoked on FORM not conforming to output of DEFRECGENERIC: ~S" form))
+    (buffer-push *form-buffer* defgeneric-form)
+    (buffer-push *form-buffer* defmethod-form)))
 
 (defun autoCLaracterization-macroexpand-hook (expander form env)
   "Intercepts and possibly replaces defuns/defgenerics/defmethods with defrecfun/defrecgenerics.
