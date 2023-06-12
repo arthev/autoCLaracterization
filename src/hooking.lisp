@@ -34,8 +34,13 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
 (defun recently-seen-form-p (form)
   (member form (buffer-contents *form-buffer*) :test #'equal))
 
-(defun register-seen-form (form)
-  (buffer-push *form-buffer* (copy-tree form)))
+(defgeneric register-seen-form (type form)
+  (:documentation "Cross-reference with DEFRECFUN, DEFRECGENERIC, etc."))
+
+(defmethod register-seen-form ((type (eql 'defun)) form)
+  (unless (eq 'defun (car form))
+    (error "REGISTER-SEEN-FORM for 'DEFUN invoked on FORM not conforming to output of DEFRECFUN: ~S" form))
+  (buffer-push *form-buffer* form))
 
 (defun autoCLaracterization-macroexpand-hook (expander form env)
   "Intercepts and possibly replaces defuns/defgenerics/defmethods with defrecfun/defrecgenerics.
@@ -43,37 +48,38 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
 Does this by analysing FORM, deciding whether it's been set as a function to instrument, and then doing so.
 
 Tries to play nice in presence of other hooks by storing old hook and calling out to it with possibly replaced EXPANDER and FORM."
-  (multiple-value-bind (dexpander dform denv) ; d for derived
+  (multiple-value-bind (dexpander dform denv transformed-for) ; d for derived
       (if (recently-seen-form-p form)
-          (values expander form env)
-          (progn
-            (register-seen-form form)
-            (case (car form)
-              (defun
-                  (defun-hook-args expander form env))
-              (defgeneric
-                  (defgeneric-hook-args expander form env))
-              (defmethod
-                  (defmethod-hook-side-effects expander form env)
-                  (values expander form env))
-              (otherwise
-               (values expander form env)))))
-    (let* ((result-values
-             (multiple-value-list
-              (funcall *old-macroexpand-hook* dexpander dform denv)))
-           (result-form (car result-values)))
-      (unless (equal form dform)
-        (register-seen-form dform)
-        (register-seen-form result-form))
+          (values expander form env nil)
+          (case (car form)
+            (defun
+                (defun-hook-args expander form env))
+            (defgeneric
+                (defgeneric-hook-args expander form env))
+            (defmethod
+                (defmethod-hook-side-effects expander form env)
+                (values expander form env nil))
+            (otherwise
+             (values expander form env nil))))
+    (let ((result-values
+            (multiple-value-list
+             (funcall *old-macroexpand-hook* dexpander dform denv))))
+      (when transformed-for
+        ;; If we've done a transformation, register having seen the result-form
+        ;; of _expanding the transformed form_. This means we should then not
+        ;; subsequently end up re-transforming the result form and so forth.
+        (register-seen-form transformed-for (car result-values)))
       (values-list result-values))))
 
 (defun transform-for-recording (expander form env new-wrapper name-and-options)
+  (declare (ignore expander))
   (destructuring-bind (def name lambda-list &body body) form
-    (declare (ignore def name))
+    (declare (ignore name))
     (values
      (macro-function new-wrapper env)
      `(,new-wrapper ,name-and-options ,lambda-list ,@body)
-     env)))
+     env
+     def)))
 
 (defun maybe-transform-for-recording (expander form env new-wrapper)
   (destructuring-bind (def name lambda-list &body body) form
@@ -82,7 +88,7 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
     (assert (symbolp name))
     (lif (name-and-options (gethash name *functions-to-instrument*))
          (transform-for-recording expander form env new-wrapper name-and-options)
-         (values expander form env))))
+         (values expander form env nil))))
 
 (defun defun-hook-args (expander form env)
   (maybe-transform-for-recording expander form env 'defrecfun))
