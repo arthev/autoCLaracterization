@@ -315,7 +315,7 @@ DEFRECGENERIC is meant to be 'dropped in' instead of DEFGENERIC for existing gen
                             keys-p)
           (alexandria:parse-ordinary-lambda-list method-lambda-list)
         (declare (ignore allow-other-keys-p aux-params keys-p))
-        `(progn
+        `(prog1
            (defgeneric ,name ,lambda-list
              ,@options
              (:method-combination superstandard))
