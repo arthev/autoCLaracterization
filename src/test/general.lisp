@@ -21,6 +21,8 @@
 (defmacro with-defrec-preamble ((var) form &body body)
   `(let ((*characterization-tests* (make-hash-table))
          (*recorder-lock* (bt:make-lock "recorder-lock-fib-test"))
+         (*functions-to-instrument* (make-hash-table :test #'eq))
+         (*form-buffer* (make-instance 'fixed-size-buffer :size 2))
          (,var ',form))
      #+sbcl(declaim (sb-ext:muffle-conditions style-warning))
      ,@body))

@@ -8,4 +8,5 @@
   :serial t
   :components ((:file "src/test/general")
                (:file "src/test/defrecfun")
-               (:file "src/test/defrecgeneric")))
+               (:file "src/test/defrecgeneric")
+               (:file "src/test/hooking")))

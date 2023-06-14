@@ -38,7 +38,7 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
   ;; fewer forms. Potentially find a least common multiple as size, if necessary.
   ;; Since we only register new forms when we encounter _new_ defuns etc., this
   ;; ought to work out nicely.
-  (make-instance 'fixed-size-buffer :size 10))
+  (make-instance 'fixed-size-buffer :size 2))
 
 (defun recently-seen-form-p (form)
   (member form (buffer-contents *form-buffer*) :test #'equal))
@@ -49,7 +49,8 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
 (defmethod register-seen-form ((type (eql 'defun)) form)
   (unless (eq 'defun (car form))
     (error "REGISTER-SEEN-FORM for 'DEFUN invoked on FORM not conforming to output of DEFRECFUN: ~S" form))
-  (buffer-push *form-buffer* form))
+  (dotimes (i 2)
+    (buffer-push *form-buffer* form)))
 
 (defmethod register-seen-form ((type (eql 'defgeneric)) form)
   (destructuring-bind (sprog1 defgeneric-form defmethod-form) form
