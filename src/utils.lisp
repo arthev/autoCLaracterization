@@ -94,6 +94,58 @@
     ,@(when aux-params
         `(&aux ,@aux-params))))
 
+(defun congruent-generic-method-lambda-lists-p
+    (generic-lambda-list method-lambda-list all-method-lambda-lists)
+  "Checks if GENERIC-LAMBDA-LIST and METHOD-LAMBDA-LIST are congruent,
+ as per cs.cmu.edu/Groups/AI/html/cltl/clm/node281.html.
+
+GENERIC-LAMBDA-LIST is the lambda-list for the generic function.
+METHOD-LAMBDA-LIST is the lambda-list for the method under consideration.
+ALL-METHOD-LAMBDA-LIST is the set of lambda-lists for all methods belonging to the generic function, because of the &allow-other-keys bullet (number 5 in the list)."
+  (multiple-value-bind (required-params-1
+                        optional-params-1
+                        rest-param-1
+                        keyword-params-1
+                        allow-other-keys-p-1
+                        aux-params-1
+                        keys-p-1)
+      (alexandria:parse-ordinary-lambda-list generic-lambda-list)
+    (multiple-value-bind (required-params-2
+                          optional-params-2
+                          rest-param-2
+                          keyword-params-2
+                          allow-other-keys-p-2
+                          aux-params-2
+                          keys-p-2)
+        (alexandria:parse-ordinary-lambda-list method-lambda-list)
+      (and
+       ;; Same number of requireds
+       (= (length required-params-1)
+          (length required-params-2))
+       ;; Same number of optionals
+       (= (length optional-params-1)
+          (length optional-params-2))
+       ;; If either mentions &rest or &key, then both must
+       (if (or rest-param-1 rest-param-2 keys-p-1 keys-p-2)
+           (and (or rest-param-1 keys-p-1)
+                (or rest-param-2 keys-p-2))
+           t)
+       ;; If the generic mentions &key, then methods must accept them
+       (if keys-p-1
+           (or allow-other-keys-p-1
+               allow-other-keys-p-2
+               (and rest-param-2 (not keys-p-2))
+               ;; accepts all keyword names?
+               (every (lambda (key-param-1)
+                        ;; normalized, hence key params on form
+                        ;; ((keyword-name var) something suppliedp)
+                        (member (caar key-param-1) keyword-params-2 :key #'caar))
+                      keyword-params-1)
+               (some (lambda (method-lambda-list)
+                       (member '&allow-other-keys method-lambda-list))
+                     all-method-lambda-lists))
+           t)))))
+
 ;;;; Ring buffer section
 
 (defclass fixed-size-buffer ()
@@ -121,3 +173,24 @@
 
 (defmethod buffer-contents ((buffer fixed-size-buffer))
   (head buffer))
+
+;;;; MOPy stuff
+
+(defgeneric methods-by-qualifiers (generic-fn qualifiers)
+  (:documentation "Returns the set of methods for GENERIC-FN matching QUALIFIERS.
+
+GENERIC-FN designates the generic fn (either by being the generic-fn or by naming it.
+
+QUALIFIERS is the list of qualifiers (possibly nil)."))
+
+(defmethod methods-by-qualifiers ((name symbol) qualifiers)
+  (methods-by-qualifiers (symbol-function name) qualifiers))
+
+(defmethod methods-by-qualifiers ((fn generic-function) qualifiers)
+  (let ((sorted-qualifiers (sort (copy-list qualifiers) #'string<)))
+    (remove-if
+     (lambda (method)
+       (not
+        (equal sorted-qualifiers
+               (sort (copy-list (c2mop::method-qualifiers method)) #'string<))))
+     (c2mop:generic-function-methods fn))))

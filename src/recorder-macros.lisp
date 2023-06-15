@@ -331,3 +331,23 @@ DEFRECGENERIC is meant to be 'dropped in' instead of DEFGENERIC for existing gen
                :optional-params optional-params
                :rest-param rest-param
                :keyword-params keyword-params)))))))
+
+;;;; DEFRECMETHOD section
+
+(defmacro defrecmethod (name-and-options &rest args)
+  "Macro to set up automatic capture of characterization tests for arbitrary generic functions with minimal setup/hassle. In case there's no DEFGENERIC form.
+
+NAME-AND-OPTIONS are as for defrecgeneric/defrecfun.
+
+Creates a suitable DEFRECGENERIC form in a progn and off-loads essentially all
+the work to that one. Given the evaluation rules for progn and macros, this should
+play well with the internal MOPy checks in DEFMETHOD-HOOK-ARGS."
+  (let ((name (car (listify name-and-options)))
+        (lambda-list (c2mop:extract-lambda-list (find-if #'listp args))))
+    ;; Given that the evaluation rules in the CLHS state that progn evaluates
+    ;; forms in order, and that that the evaluation rules for macros say the
+    ;; expanded form gets evaluated in place of the macro form...
+    ;; This ought to be fine and dandy and let the defrecgeneric take effect
+    ;; before the evaluation - including macroexpansion - of the defmethod.
+    `(progn (defrecgeneric ,name-and-options ,lambda-list)
+            (defmethod ,name ,@args))))

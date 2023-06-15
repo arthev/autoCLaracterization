@@ -61,6 +61,16 @@ Does NOT preserve lexical environment, so e.g. CUSTOM-TEST can't closure."
     (buffer-push *form-buffer* defgeneric-form)
     (buffer-push *form-buffer* defmethod-form)))
 
+(defmethod register-seen-form ((type (eql 'defmethod)) form)
+  (destructuring-bind (sprogn defrecgeneric-form defmethod-form) form
+    (unless (and (eq 'progn sprogn)
+                 (eq 'defrecgeneric (car defrecgeneric-form))
+                 (eq 'defmethod (car defmethod-form)))
+      (error "REGISTER-SEEN-FORM for 'DEFMETHOD invoked on FORM not conforming to output of DEFRECMETHOD: ~S" form)))
+  ;; Heavy work's off-loaded to the defrecgeneric subform, so don't push anything
+  ;; to the *form-buffer*.
+  :ok)
+
 (defun autoCLaracterization-macroexpand-hook (expander form env)
   "Intercepts and possibly replaces defuns/defgenerics/defmethods with defrecfun/defrecgenerics.
 
@@ -76,8 +86,7 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
             (defgeneric
                 (defgeneric-hook-args expander form env))
             (defmethod
-                (defmethod-hook-side-effects expander form env)
-                (values expander form env nil))
+                (defmethod-hook-args expander form env))
             (otherwise
              (values expander form env nil))))
     (let ((result-values
@@ -92,18 +101,18 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
 
 (defun transform-for-recording (expander form env new-wrapper name-and-options)
   (declare (ignore expander))
-  (destructuring-bind (def name lambda-list &body body) form
+  (destructuring-bind (def name &rest rest) form
     (declare (ignore name))
     (values
      (macro-function new-wrapper env)
-     `(,new-wrapper ,name-and-options ,lambda-list ,@body)
+     `(,new-wrapper ,name-and-options ,@rest)
      env
      def)))
 
 (defun maybe-transform-for-recording (expander form env new-wrapper)
-  (destructuring-bind (def name lambda-list &body body) form
-    (declare (ignore lambda-list body))
-    (assert (member def '(defun defgeneric) :test #'eq))
+  (destructuring-bind (def name &rest rest) form
+    (declare (ignore rest))
+    (assert (member def '(defun defgeneric defmethod) :test #'eq))
     (assert (symbolp name))
     (lif (name-and-options (gethash name *functions-to-instrument*))
          (transform-for-recording expander form env new-wrapper name-and-options)
@@ -115,6 +124,16 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
 (defun defgeneric-hook-args (expander form env)
   (maybe-transform-for-recording expander form env 'defrecgeneric))
 
-(defun defmethod-hook-side-effects (expander form env)
-  (declare (ignore expander form env))
-  :todo)
+(defun defmethod-hook-args (expander form env)
+  (let* ((name (car (listify (cadr form))))
+         (lambda-list (c2mop:extract-lambda-list (find-if #'listp (cddr form))))
+         (gen-fn (symbol-function name)))
+    (if (or (not (fboundp name))
+            (not (methods-by-qualifiers name '(:superaround)))
+            (not (congruent-generic-method-lambda-lists-p
+                  (c2mop:generic-function-lambda-list gen-fn)
+                  lambda-list
+                  (mapcar #'c2mop:method-lambda-list
+                          (c2mop:generic-function-methods gen-fn)))))
+        (maybe-transform-for-recording expander form env 'defrecmethod)
+        (values expander form env nil))))
