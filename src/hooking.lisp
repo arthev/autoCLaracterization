@@ -87,6 +87,11 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
                 (defgeneric-hook-args expander form env))
             (defmethod
                 (defmethod-hook-args expander form env))
+            (defrecgeneric
+                ;; This simply sets up recording of the two generated subforms,
+                ;; so that the defmethod won't trigger infinite iteration because
+                ;; of the 'no superaround exists yet' check.
+                (values expander form env 'defgeneric))
             (otherwise
              (values expander form env nil))))
     (let ((result-values
@@ -127,7 +132,7 @@ Tries to play nice in presence of other hooks by storing old hook and calling ou
 (defun defmethod-hook-args (expander form env)
   (let* ((name (car (listify (cadr form))))
          (lambda-list (c2mop:extract-lambda-list (find-if #'listp (cddr form))))
-         (gen-fn (symbol-function name)))
+         (gen-fn (when (fboundp name) (symbol-function name))))
     (if (or (not (fboundp name))
             (not (methods-by-qualifiers name '(:superaround)))
             (not (congruent-generic-method-lambda-lists-p

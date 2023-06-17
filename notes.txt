@@ -1,23 +1,12 @@
 ## Todo:
 
-5) Such a macroexpand-hook system will have to handle the case where the codebase under instrumentation doesn't contain the `defgeneric` forms, but only raw `defmethod`s. So perhaps check on each eligible `defmethod` form whether to generate
-a suitable `defgeneric`.
--- This can be done in a MOPy fashion by inspecting the available methods/the generic function definition, to see if e.g. a superaround confirming to the lambda-list exists. So should be possible without any new awkward tables etc.
-STRATEGY: MOPy checks to decide what to do in defmethod-hook-args (these are poor names lol). Then if so, lookup macro for defrecmethod etc. That expands into defgeneric and defmethod in appropriate fashion. And then "all the work" gets done by the defgeneric. Seems like clean reuse of existent stuff.
-
-TODO:
-Implement PARSE-DEFMETHOD (won't do - no need)
-Implement DEFRECMETHOD (done done)
-Implement CONGRUENT-GENERIC-LAMBDA-LISTS-P (done)
-Add tests for defrecmethod && for defrecmethod in hooking interface
--- all the defgenerics tests translate easily
--- also needs a test to cover 'updates for discongruous lambda list'
--- also needs a test to cover 'no existent superaround method'
--- should probably also test congruent-generic-method-lambda-list-p decently
-
 6) Update README and package definition, hehe
-- DEFRECFUN & DEFRECGENERIC both supported
+- DEFRECFUN & DEFRECGENERIC both supported (and DEFRECMETHOD too in case defgeneric form's missing)
 - describe the programmer interface (:test, :custom-test, :strategy, macroexpand-hook using setup)...
 - all the stuff in config.lisp, obviously, including *record-conditions*
 - also improve names overall (e.g. hook-args fns are poorly named)
+- have a pass to look for things to refactor
+-- the various test cases that use remove-fn because of restart troubles could
+       probably benefit from refactoring to use `with-redefinition-mimicker`.
+
 7) Try out actual usage in a codebase

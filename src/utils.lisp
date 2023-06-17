@@ -110,6 +110,7 @@ ALL-METHOD-LAMBDA-LIST is the set of lambda-lists for all methods belonging to t
                         aux-params-1
                         keys-p-1)
       (alexandria:parse-ordinary-lambda-list generic-lambda-list)
+    (declare (ignore aux-params-1))
     (multiple-value-bind (required-params-2
                           optional-params-2
                           rest-param-2
@@ -118,6 +119,7 @@ ALL-METHOD-LAMBDA-LIST is the set of lambda-lists for all methods belonging to t
                           aux-params-2
                           keys-p-2)
         (alexandria:parse-ordinary-lambda-list method-lambda-list)
+      (declare (ignore aux-params-2))
       (and
        ;; Same number of requireds
        (= (length required-params-1)
