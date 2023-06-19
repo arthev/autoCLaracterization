@@ -2,6 +2,12 @@
   (:use :cl)
   (:export :defrecfun
            :defrecgeneric
+           :defrecmethod
            :*characterization-test-output-path*
            :*default-recorder-strategy*
-           :write-characterization-tests))
+           :*record-conditions*
+           :register-recorder
+           :*characterization-tests*
+           :write-characterization-tests
+           :turn-off-characterizing
+           :turn-on-characterizing))

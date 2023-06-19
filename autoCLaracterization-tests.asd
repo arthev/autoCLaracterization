@@ -2,7 +2,7 @@
 
 (asdf:defsystem :autoCLaracterization-tests
   :description "Tests for autoCLaracterization"
-  :version "0.0"
+  :version "0.1"
   :author "arthev"
   :depends-on (:autoCLaracterization
                :fiveam)

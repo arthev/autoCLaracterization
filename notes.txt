@@ -1,12 +1,9 @@
 ## Todo:
 
-6) Update README and package definition, hehe
-- DEFRECFUN & DEFRECGENERIC both supported (and DEFRECMETHOD too in case defgeneric form's missing)
-- describe the programmer interface (:test, :custom-test, :strategy, macroexpand-hook using setup)...
-- all the stuff in config.lisp, obviously, including *record-conditions*
-- also improve names overall (e.g. hook-args fns are poorly named)
-- have a pass to look for things to refactor
--- the various test cases that use remove-fn because of restart troubles could
-       probably benefit from refactoring to use `with-redefinition-mimicker`.
-
 7) Try out actual usage in a codebase
+
+Plausible todos:
+- The various test cases that use remove-fn because of restart troubles could
+  presumably benefit from refactoring to use `with-redefinition-mimicker`.
+- Some of the form checks in hooking.lisp (though simple) could be made simpler still
+  with a pattern matcher (that operated nicely on s-exps)

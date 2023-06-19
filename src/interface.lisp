@@ -23,3 +23,12 @@ currently in *CHARACTERIZATION-TESTS*."
       (finish-output out)
       (clrhash *characterization-tests*)))
   t)
+
+(defun turn-on-characterizing ()
+  (unless (or (eq *macroexpand-hook* 'autoCLaracterization-macroexpand-hook)
+              (eq *macroexpand-hook* #'autoCLaracterization-macroexpand-hook))
+    (setf *old-macroexpand-hook* *macroexpand-hook*))
+  (setf *macroexpand-hook* 'autoCLaracterization-macroexpand-hook))
+
+(defun turn-off-characterizing ()
+  (setf *macroexpand-hook* *old-macroexpand-hook*))

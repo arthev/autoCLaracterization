@@ -2,7 +2,7 @@
 
 (asdf:defsystem :autoCLaracterization
   :description "Automatic generation of characterization tests (using 5am)"
-  :version "0.0"
+  :version "0.1"
   :author "arthev"
   :depends-on (:fiveam     ;; ye olde test library
                :alexandria ;; contains lambda list parsers
