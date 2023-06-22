@@ -7,3 +7,6 @@ Plausible todos:
   presumably benefit from refactoring to use `with-redefinition-mimicker`.
 - Some of the form checks in hooking.lisp (though simple) could be made simpler still
   with a pattern matcher (that operated nicely on s-exps)
+- Functions might be dependent on dynamic environment. Should be straightforwards to extend NAME-AND-OPTIONS to take e.g. :dynamics,
+  and then change test-generation to do something like:
+  `(let (,@(mapcar (lambda (dynamic) `(,dynamic ,(serialize-object (symbol-value dynamic)))))) ,@current-stuff)
