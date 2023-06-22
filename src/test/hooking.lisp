@@ -223,7 +223,8 @@
                                        (multiple-value-list (some-fn 'a 'b)))))
               (reverse (gethash 'some-fn *characterization-tests*))))
       (with-redefinition-mimicker some-fn
-          "New lambda-list (A B C) is incompatible"
+          #+allegro "Attempting to change the lambda list"
+          #+sbcl "New lambda-list (A B C) is incompatible"
         (eval '(defmethod some-fn (a b c) (list a b c))))
       (5am:is-true (fboundp 'some-fn))
       (5am:is (= 1 (length (methods-by-qualifiers 'some-fn '(:superaround)))))

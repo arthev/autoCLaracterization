@@ -308,12 +308,16 @@
         (some-fn nil))
       (5am:is (= 0 (hash-table-count *characterization-tests*)))
       (5am:is (= 0 (length (gethash 'some-fn *characterization-tests*))))
-      (5am:signals type-error
+      (5am:signals
+          #+allegro type-error
+          #+sbcl simple-type-error
         (some-fn t))
       (5am:is (= 1 (hash-table-count *characterization-tests*)))
       (5am:is (= 1 (length (gethash 'some-fn *characterization-tests*))))
       (5am:is
-       (equal '((5am:signals simple-type-error
+       (equal '((5am:signals
+                    #+allegro type-error
+                    #+sbcl simple-type-error
                   (some-fn t)))
               (reverse (gethash 'some-fn *characterization-tests*)))))))
 
@@ -334,7 +338,9 @@
     (5am:is (= 1 (hash-table-count *characterization-tests*)))
     (5am:is (= 2 (length (gethash 'some-fn *characterization-tests*))))
     (5am:is
-     (equal '((5am:signals simple-type-error
+     (equal '((5am:signals
+                  #+allegro type-error
+                  #+sbcl simple-type-error
                 (some-fn))
               (5am:is (every #'eql (list 0)
                                    (multiple-value-list (some-fn)))))
